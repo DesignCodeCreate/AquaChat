@@ -7,12 +7,13 @@
 
 	import { env } from "$env/dynamic/public";
 	const supabase = createClient("https://aulykkyjpimknsionejk.supabase.co", env.PUBLIC_SUPABASE_KEY);
-
+	
 	let channel = "testchannel";
 	let message = "";
 
 	let conversation = {};
 
+	
 	async function getConversation() {
 		const { data, error } = await supabase.from("conversation").select();
 		data.forEach((message) => {
