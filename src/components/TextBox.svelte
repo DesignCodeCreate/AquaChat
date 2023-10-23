@@ -4,21 +4,31 @@
 
 	let value;
 	export let channel;
+	let isTyping = false;
 	
 	const dispatch = createEventDispatcher();
+	
 	function submit(event) {
 		if (value == "") return;
 		dispatch("updated", { text: value });
 		value = "";
 	}
+
+	function typing(event) {
+		dispatch("typing", { isTyping: isTyping });
+		value = "";
+	}
+
 </script>
 
 <div class="button-container">
 	<form on:submit={submit}>
 		<div class="flex">
 			<textarea bind:value class="grow h-10 rounded-l-md text-slate-300 bg-slate-500 outline-0 border-l border-y border-slate-400" on:keypress={(event) => {
-				if (event.which == 13 && !event.shiftKey) submit();
-			}} />
+				if (event.which == 13 && !event.shiftKey) submit(); else isTyping = true; typing();
+			}} on:keyup={(event) => {
+				isTyping = false;
+			}}/>
 				
 			<button on:click={submit} class="px-4 rounded-r-md text-slate-300 bg-blue-800 border-r border-y border-slate-400"> Send </button>
 		</div>

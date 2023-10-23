@@ -1,59 +1,89 @@
 <script>
-	import { createClient } from "@supabase/supabase-js";
+	import TextBox from "../components/TextBox.svelte";
+	
+	let personTyping;
+	
 	import { marked } from "marked";
 
-	import TextBox from "../components/TextBox.svelte";
-	import { DarkMode } from "flowbite-svelte";
-
 	import { env } from "$env/dynamic/public";
-	const supabase = createClient("https://aulykkyjpimknsionejk.supabase.co", env.PUBLIC_SUPABASE_KEY);
-	
-	let channel = "testchannel";
-	let message = "";
 
-	let conversation = {};
+	let conversationinChannel = {};
 
-	
-	async function getConversation() {
-		const { data, error } = await supabase.from("conversation").select();
-		data.forEach((message) => {
-			conversation[message.created_at] = marked.parse(message.content);
-		});
-	}
-	getConversation();
-
-	function makeRightTime(string) {
-		let date = new Date(string);
+	function formatTime(timestamp) {
+		let date = new Date(parseInt(timestamp));
 		return `${date.getDate()}/${date.getMonth()}/${date.getFullYear()} - ${date.toTimeString().slice(0, -34)}`
 	}
+	
+	import * as sdk from "matrix-js-sdk";
+	import Olm from "olm";
+	import { onMount } from "svelte";
 
-	supabase.channel(channel).on(
-		"postgres_changes",
-		{
-			event: "INSERT",
-			schema: "public",
-			table: "conversation"
-		},
-		(payload) => {
-			conversation[payload.new.created_at] = payload.new.content;
-		}
-	).subscribe();
+	let client;
+	const testRoomId = "!fKJDAVVNRpnlmGfrIk:matrix.org";
+	
+	function initMatrix() {
+		window.global ||= window;
+		global.Olm = Olm;
 
-	async function handleMessageUpdate(event) {
-		const { error } = await supabase.from("conversation").insert({ content: event.detail.text });
-		if (error) console.error(error);
+		client = sdk.createClient({
+			baseUrl: "https://matrix.org",
+			accessToken: "syt_ZGVzaWduaW5nYzBkaW5nY3JlYXRpbmc_vBVQzUPanExJjszhspkJ_3u2OxL",
+			userId: "@designingc0dingcreating:matrix.org"
+		});
+		client.initCrypto();
+		client.startClient();
+
+		client.on("Room.timeline", (event, room, toStartOfTimeline) => {
+			if (event.getType() !== "m.room.message") return;
+			conversationinChannel[event.event.origin_server_ts] = event.event.content.body;
+		});
+
+		client.on("RoomMember.typing", (event, member) => {
+			if (member.typing) {
+				personTyping = member.name + "is typing...";
+			} else {
+				personTyping = "";
+			}
+		});
 	}
+	
+	onMount(initMatrix);
+
+	function handleTypingUpdate(event) {
+		client.sendEvent(testRoomId, "RoomMember.typing", { typing: event.detail.isTyping } ,"@designingc0dingcreating:matrix.org", (err, res) => { console.log(err); });
+	}
+
+	function handleMessageUpdate(event) {		
+		let content = {
+			"body": event.detail.text,
+			"msgtype": "m.text"
+		};
+		
+		client.sendEvent(
+			testRoomId,
+			"m.room.message",
+			content,
+			""
+		).then((res) => {}).catch((err) => {
+			console.error(err);
+		});
+	}
+
 </script>
 
-<DarkMode position="fixed" style="float: right;"/>
-
-<div class="flex flex-col w-full h-full overflow-y-scroll">
-	{#each Object.entries(conversation) as [ created_at, content ]}
-		<p class="dark:text-white">
-			<b> User - {makeRightTime(created_at)} </b><br />
-			{@html content}
-		</p>
+<div class="flex flex-col w-full p-2 overflow-y-scroll">
+	{#each Object.entries(conversationinChannel) as [ created_at, content ]}
+		<div class="text-align: center;">
+			<p class="dark:text-white">
+				<b> User - {formatTime(created_at)} </b><br />
+				{@html content}
+			</p>
+		</div>
 	{/each}
 </div>
 
-<TextBox channel={channel} on:updated={handleMessageUpdate}></TextBox>	
+<TextBox on:typing={handleTypingUpdate} on:updated={handleMessageUpdate} />
+
+{#if personTyping}
+	<p><b>{personTyping}</b></p>
+{/if}
