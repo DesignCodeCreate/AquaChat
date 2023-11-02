@@ -4,7 +4,10 @@
 	export let data;
 
 	let personTyping;
-	
+
+
+	let rooms;
+
 	import { marked } from "marked";
 
 	let conversationinChannel = {};
@@ -34,9 +37,15 @@
 
 		client.startClient();
 
-		client.on("Room.timeline", (event, room, toStartOfTimeline) => {
+		client.on("Room.timeline", (event, room, toStartOfTimeline, member) => {
 			if (event.getType() !== "m.room.message") return;
-			conversationinChannel[event.event.origin_server_ts] = marked.parse(event.event.content.body);
+			const senderUser = room.getMember(event.getSender());
+			conversationinChannel[event.event.event_id] = { 
+				created_at: event.event.origin_server_ts,
+				room: room,
+				member: senderUser,
+				content: marked.parse(event.event.content.body) 
+			};
 		});
 
 		client.on("RoomMember.typing", (event, member) => {
@@ -46,7 +55,16 @@
 				personTyping = "";
 			}
 		});
+		client.on("RoomState.members", function (event, state, member) {
+			const room = client.getRoom(state.roomId);
+			if (!room) {
+				return;
+			}
+			const memberList = state.getMembers();
+			rooms = room.id;
+		});
 	});
+
 
 	function handleTypingUpdate(event) {
 		if (event.detail.isTyping) {
@@ -61,7 +79,7 @@
 			"body": event.detail.text,
 			"msgtype": "m.text"
 		};
-		
+
 		client.sendEvent(
 			testRoomId,
 			"m.room.message",
@@ -72,20 +90,19 @@
 </script>
 
 
-
 <div class="flex flex-col w-full p-2 overflow-y-scroll">
-	{#each Object.entries(conversationinChannel) as [ created_at, content ]}
+	{#each Object.entries(conversationinChannel) as [ eventId, eventData ]}
 		<div class="text-align: center;">
 			<p class="dark:text-white">
-				<b> User - {formatTime(created_at)} </b><br />
-				{@html content}
+				<b> {eventData.member.name} - {formatTime(eventData.created_at)} </b><br />
+				{@html eventData.content}
 			</p>
 		</div>
 	{/each}
+
 </div>
 
-<TextBox on:typing={handleTypingUpdate} on:updated={handleMessageUpdate} />
 
-{#if personTyping}
-	<p><b>{personTyping}</b></p>
-{/if}
+
+<TextBox on:typing={handleTypingUpdate} on:updated={handleMessageUpdate} typingText={personTyping} />
+
