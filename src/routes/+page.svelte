@@ -5,16 +5,8 @@
 
 	let personTyping;
 
-	import { Drawer, Button, CloseButton, A, Spinner } from 'flowbite-svelte';
-	import { sineIn } from 'svelte/easing';
+	import { Button, Spinner } from 'flowbite-svelte';
 
-
-	let hidden1 = true;
-	let transitionParams = {
-		x: -320,
-    	duration: 200,
-    	easing: sineIn
-	};
 
 
 	import { marked } from "marked";
@@ -32,9 +24,6 @@
     import { afterRead } from "@popperjs/core";
 
 	let currentRoom = "!fKJDAVVNRpnlmGfrIk:matrix.org";
-
-
-
 
 	let client;
 	let currentRoomName;
