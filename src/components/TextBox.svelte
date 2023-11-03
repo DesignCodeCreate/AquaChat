@@ -3,6 +3,7 @@
 	const dispatch = createEventDispatcher();
 
 	export let typingText;
+	export let channel;
 
 	let value = "";
   
@@ -35,13 +36,12 @@
 
 
 {#if typingText}
-  <div class="typing-indicator">
-    <div class="dot one"></div>
-    <div class="dot two"></div>
-    <div class="dot three"></div>
-
-	<p> &nbsp;&nbsp;<b>{typingText}</b></p>
-  </div>
+	<div class="typing-indicator">
+		<div class="dot one"></div>
+		<div class="dot two"></div>
+		<div class="dot three"></div>
+		<p> &nbsp;&nbsp;<b>{typingText}</b></p>
+	</div>
 {/if}
 
 <div class="button-container">
@@ -50,8 +50,9 @@
 		<div class="flex">
 			<textarea
 				id="textbox"
+				placeholder = {"Message #" + channel}
 				bind:value={value}
-				class="grow h-10 rounded-l-md text-slate-300 bg-slate-500 outline-0 border-l border-y border-slate-400"
+				class="grow h-10 rounded-l-md text-slate-300 bg-slate-500 outline-0 border-l border-y border-slate-400 chat-input"
 				on:keypress={(event) => {
 					if (event.which == 13 && !event.shiftKey) submit();
 					checkIfNone();
@@ -72,10 +73,18 @@
 	.button-container {
 		position: fixed;
 		bottom: 0;
-		left: 0;
+		left: 250px;
 		right: 0;
 		text-align: center;
 		padding: 10px;
+	}
+
+	.chat-input {
+		flex: 1;
+		width: 100%;
+		padding: 10px;
+		border: 1px solid #ccc;
+		border-radius: 5px;
 	}
 
 	.typing-indicator {
@@ -120,5 +129,8 @@
 		40% {
 			transform: scale(0);
 		}
+	}
+	::placeholder {
+		color: #8e9297; /* Adjust the color to your preference */
 	}
 </style>
