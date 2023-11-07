@@ -21,7 +21,7 @@ export const actions = {
 			}
 			await matrixClient.login("m.login.password", {
 				user: userWithPrefix,
-				password: password,
+				password: password
 			});
 
 			cookies.set(
@@ -32,7 +32,7 @@ export const actions = {
 				}
 			);
 			cookies.set(
-				"userId", userWithPrefix,
+				"userId", matrixClient.getUserId(),
 				{
 					path: "/",
 					maxAge: 60 * 60 * 24 * 365
