@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from "svelte";
 	const dispatch = createEventDispatcher();
 
-	export let typingText;
+	export let peopleTyping;
 	export let channel;
 
 	let value = "";
@@ -24,9 +24,11 @@
 	}
 </script>
 
-{#if typingText}
-	<b> {typingText} </b>
+{#each Object.entries(peopleTyping) as [ name, typing  ]}
+{#if typing}
+	<b><p>{name} is typing</p></b>
 {/if}
+{/each}
 
 <div class="flex mb-6 w-full">
 	<textarea

@@ -2,7 +2,7 @@ import { redirect } from "@sveltejs/kit";
 import * as sdk from "matrix-js-sdk";
 
 export async function load({ url, cookies }) {
-    let matrixClient = sdk.createClient({ baseUrl: "https://matrix.org" });
+    let matrixClient = sdk.createClient({ baseUrl: `https://${cookies.get("homeserver")}` });
     await matrixClient.login("m.login.token", { token: url.searchParams.get("loginToken") });
 
     cookies.set(
@@ -19,6 +19,5 @@ export async function load({ url, cookies }) {
             maxAge: 60 * 60 * 24 * 365
         }
     );
-
     throw redirect(302, "/");
 }
