@@ -55,11 +55,11 @@
 			members: {}
 		};
 		peopleTyping = {};
-		client.sendEvent(currentRoomDetails.id, "m.fully_read", { event_id: roomId }, "");
 
 
-		for (const message of (await client.roomInitialSync(roomId)).messages.chunk) {
-			if (message.type != "m.room.message") continue;			
+		for (const message of (await client.roomInitialSync(roomId, 300)).messages.chunk) {
+			if (message.type != "m.room.message") continue;
+			
 			currentRoomDetails.messages[message.event_id] = { 
 				created_at: message.origin_server_ts,
 				room: room,
