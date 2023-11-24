@@ -24,17 +24,19 @@
 	}
 </script>
 
-{#each Object.entries(peopleTyping) as [ name, typing  ]}
-{#if typing}
-	<b><p>{name} is typing</p></b>
-{/if}
-{/each}
+<div class="mt-4 mb-2">
+	{#each Object.entries(peopleTyping) as [ name, typing  ]}
+		{#if typing}
+			<b><p>{name} is typing</p></b>
+		{/if}
+	{/each}
+</div>
 
-<div class="flex mb-6 w-full">
+<div class="flex mb-4 w-full">
 	<textarea
 		bind:value
 		placeholder = {`Message #${channel}`}
-		class="grow h-10 rounded-l-md text-slate-300 bg-slate-500 outline-0 border-l border-y border-slate-400"
+		class="grow h-10 rounded-l-md text-slate-200 placeholder:text-slate-400 bg-slate-500 outline-0 border-l border-y border-slate-400"
 		on:keypress={(event) => {
 			if (event.keyCode == 13 && !event.shiftKey) submit();
 			checkIfNone();

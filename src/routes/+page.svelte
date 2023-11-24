@@ -41,11 +41,33 @@
 		return roomId;
 	}
 
+	function getRandomRoom() {
+		let count = 0
+		for (const room of Object.keys(rooms)) {
+			count ++
+		}
+
+		let num = Math.floor(Math.random() * (count - 1));
+
+		count = 0
+		for (const room of Object.keys(rooms)) {
+			console.log(count, num);
+			if (count == num) {
+				return room;
+			}
+			count ++;
+		}
+	}
+
 	async function leaveRoom(roomId) {
+		rooms[roomId] = {};
+		changeRoom(getRandomRoom());
 		await client.leave(roomId);
+		
 	}
 
 	async function changeRoom(roomId) {
+
 		const room = client.getRoom(roomId);
 		if (!room) return;
 		currentRoomDetails = {
@@ -56,10 +78,11 @@
 		};
 		peopleTyping = {};
 
+		fetchMembers(roomId);
 
 		for (const message of (await client.roomInitialSync(roomId, 300)).messages.chunk) {
 			if (message.type != "m.room.message") continue;
-			
+
 			currentRoomDetails.messages[message.event_id] = { 
 				created_at: message.origin_server_ts,
 				room: room,
@@ -150,7 +173,7 @@
 	}
 </script>
 
-<div class="flex flex-row grow space-x-8 h-full">
+<div class="flex flex-row grow h-full">
 	<!-- Room list -->
 	<div class="p-4 w-1/4 max-h-full bg-slate-600 overflow-y-auto flex-grow-0 flex-shrink-0">
 		<h3 class="mb-4 font-semibold text-xl text-gray-400"> Your rooms </h3>
@@ -159,17 +182,19 @@
 				Loading...
 			{:else}
 				{#each Object.entries(rooms) as [ eventId, eventData ]}
-					<button on:click={() => changeRoom(eventId)}> {eventData.roomName} </button>
-					<button on:click={() => leaveRoom(eventId)}> ✕ </button>
-					{eventData.unread}
-					<br /><br />
+					{#if eventData.roomName}
+						<button on:click={() => changeRoom(eventId)}> {eventData.roomName} </button>
+						<button on:click={() => leaveRoom(eventId)}> ✕ </button>
+						{eventData.unread}
+						<br /><br />
+					{/if}
 				{/each}
 			{/if}
 		</p>
 	</div>
 
 	<!-- Messages -->
-	<div class="flex flex-col grow mt-4 dark:text-white max-h-full overflow-y-auto flex-grow">
+	<div class="flex flex-col grow pl-4 pt-4 dark:text-white max-h-full overflow-y-auto flex-grow">
 		{#if !currentRoomDetails["name"]}
 			Please select a room!
 		{:else}
