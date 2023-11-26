@@ -36,7 +36,7 @@
 	<textarea
 		bind:value
 		placeholder = {`Message #${channel}`}
-		class="grow h-10 rounded-l-md text-slate-200 placeholder:text-slate-400 bg-slate-500 outline-0 border-l border-y border-slate-400"
+		class="grow h-10 rounded-l-md text-box outline-0 border-l border-y border-slate-400"
 		on:keypress={(event) => {
 			if (event.keyCode == 13 && !event.shiftKey) submit();
 			checkIfNone();
