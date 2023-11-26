@@ -22,6 +22,7 @@
 		"flowbite-svelte": "^0.37.4",
 		"marked": "^9.1.2",
 		"matrix-js-sdk": "^29.0.0",
-		"olm": "https://packages.matrix.org/npm/olm/olm-3.2.1.tgz"
+		"olm": "https://packages.matrix.org/npm/olm/olm-3.2.1.tgz",
+		"svelte-sound": "^0.6.0"
 	}
 }
