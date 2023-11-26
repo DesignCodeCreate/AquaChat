@@ -1,15 +1,14 @@
 <script>
 	import { marked } from "marked";
-	import { onMount } from "svelte";
-	import { DarkMode } from "flowbite-svelte";
-
 	import * as sdk from "matrix-js-sdk";
 	import Olm from "olm";
+	import { onMount } from "svelte";
 
 	import ListedRoom from "../components/ListedRoom.svelte";
-	import TextBox from "../components/TextBox.svelte";
 	import Message from "../components/Message.svelte";
-	import Popup  from "../components/Popup.svelte";
+	import Popup from "../components/Popup.svelte";
+	import TextBox from "../components/TextBox.svelte";
+	import ThemeSwitcher from "../components/ThemeSwitcher.svelte";
 
 	export let data;
 	let loading = true;
@@ -223,7 +222,11 @@
 					{/each}
 				{/if}
 			</p>
-			<DarkMode class="absolute bottom-5" />
+		</div>
+
+		<!-- Theme switcher -->
+		<div class="absolute left-5 bottom-5">
+			<ThemeSwitcher />
 		</div>
 
 		<!-- Messages -->
