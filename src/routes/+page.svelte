@@ -6,18 +6,17 @@
 	import * as sdk from "matrix-js-sdk";
 	import Olm from "olm";
 
+	import ListedRoom from "../components/ListedRoom.svelte";
 	import TextBox from "../components/TextBox.svelte";
+	import Message from "../components/Message.svelte";
+	import Popup  from "../components/Popup.svelte";
 
 	export let data;
 	let loading = true;
 
 	let sounds = {}
 	let peopleTyping = {};
-
-	function formatTime(timestamp) {
-		let date = new Date(parseInt(timestamp));
-		return `${date.getDate()}/${date.getMonth()}/${date.getFullYear()} - ${date.toTimeString().slice(0, -34)}`;
-	}
+	let messageView = {};
 
 	let rooms = {};
 
@@ -51,12 +50,21 @@
 	}
 
 	async function leaveRoom(roomId) {
-		rooms[roomId] = {};
-		currentRoomDetails = {};
 		await client.leave(roomId);
-		togglePopup();
+		delete rooms[roomId];
+		rooms = rooms;
+		currentRoomDetails = {
+			id: undefined,
+			name: undefined,
+			messages: {},
+			members: {}
+		};
 	}
 
+	async function scrollToBottom(node, behavior) {
+		node.scroll({ top: node.scrollHeight, behavior });
+	};
+	
 	async function changeRoom(roomId) {
 		const room = client.getRoom(roomId);
 		if (!room) return;
@@ -82,8 +90,9 @@
 		for (const user of (await client.roomInitialSync(roomId, 300)).presence) {
 			currentRoomDetails.members[user.content.user_id] = { displayName: user.content.user_id, presence: user.content.presence}
 		}
-	}
 
+		await scrollToBottom(messageView);
+	}
 
 	function fetchRooms() {
 		for (const room of client.getRooms()) {
@@ -109,7 +118,6 @@
 		
 		client.on("Room.timeline", (event, room) => {
 			if (event.getType() != "m.room.message") return;
-			if (event.getSender() != data.userId) sounds.message.play();
 			if (room.roomId != currentRoomDetails.id) return;
 			currentRoomDetails.messages[event.event.event_id] = { 
 				created_at: event.event.origin_server_ts,
@@ -117,6 +125,13 @@
 				member: room.getMember(event.getSender()),
 				content: marked.parse(event.event.content.body)
 			};
+			try {
+				if (event.getSender() != data.userId) sounds.message.play();
+			} catch (e) {
+				console.log(e);
+			}
+			
+			scrollToBottom(messageView, "smooth");
 		});
 
 		client.on("RoomMember.typing", (_event, member) => {
@@ -130,9 +145,9 @@
 		});
 
 		client.on("m.presence", (_event, member) => {
-			let tempMembers = {}
+			let tempMembers = {};
 			for (const user of (client.roomInitialSync(roomId, 300)).presence) {
-				tempMembers[user.content.user_id] = { displayName: user.content.user_id, presence: user.content.presence}
+				tempMembers[user.content.user_id] = { displayName: user.content.user_id, presence: user.content.presence };
 			}
 			currentRoomDetails.members = tempMembers;
 		});
@@ -154,17 +169,7 @@
 		client.sendEvent(currentRoomDetails.id, "m.room.message", content, "");
 	}
 
-	let showPopup = {
-		"shown": false,
-		"eventId": null,
-		"roomName": null
-	};
-
-	function togglePopup(eventId, roomName) {
-		showPopup.shown = !showPopup.shown;
-		showPopup.eventId = eventId;
-		showPopup.roomName = roomName;
-	}
+	let leaveRoomPopup = null;
 
 	function pauseSounds() {
 		for (let i of Object.keys(sounds)) {
@@ -184,6 +189,18 @@
     <track kind="captions" />
 </audio>
 
+{#if leaveRoomPopup}
+	<Popup
+		title="Leave room?"
+		description={`Are you sure you want to leave ${rooms[leaveRoomPopup].roomName}?`}
+		on:confirm={() => {
+			leaveRoom(leaveRoomPopup);
+			leaveRoomPopup = null;
+		}}
+		on:cancel={() => leaveRoomPopup = null}
+	/>
+{/if}
+
 {#if loading}
 	<div class="flex h-full justify-center">
 		<img class="w-32 h-32 place-self-center animate-bounce" src="/fish.png" alt="Fish" />
@@ -198,68 +215,51 @@
 					Loading...
 				{:else}
 					{#each Object.entries(rooms) as [ eventId, eventData ]}
-						{#if eventData.roomName}
-						<div class="text-gray-400 mt-10 flex items-center justify-center gap-x-6 lg:justify-start">
-							<div class="text-gray-400 group inline-flex">
-								<button class="text-gray-400 rounded-l-md bg-transparent px-3.5 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 hover:bg-gray-400 focus:outline-none focus:ring focus:border-blue-300 transition-colors duration-300 ease-in-out" on:click={() => changeRoom(eventId)}>
-									{eventData.roomName}
-									- {eventData.unread}
-								</button>
-								<button class="text-gray-400 rounded-r-md bg-transparent px-3.5 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 hover:bg-gray-400 focus:outline-none focus:ring focus:border-blue-300 transition-colors duration-300 ease-in-out" on:click={() => togglePopup(eventId, eventData.roomName)}>
-									✕
-								</button>
-							</div>
-						</div>
-						{/if}
+						<ListedRoom
+							room={eventData}
+							on:select={() => changeRoom(eventId)}
+							on:leave={() => leaveRoomPopup = eventId}
+						/>
 					{/each}
 				{/if}
 			</p>
-			{#if showPopup.shown}
-				<div class="popup">
-					<h3 class="text-lg font-semibold mb-4"> Leave room? </h3>
-					<p class="text-gray-600 mb-4"> Are you sure you want to leave {showPopup.roomName}? </p>
-					<button on:click={leaveRoom(showPopup.eventId)} class="bg-blue-500 text-white px-4 py-2 rounded-md mr-2 cursor-pointer hover:bg-blue-600"> Leave </button>
-					<button on:click={togglePopup} class="bg-gray-300 text-gray-800 hover:bg-gray-400 secondary"> Cancel </button>
-				</div>
-			{/if}
 			<DarkMode class="absolute bottom-5" />
 		</div>
 
 		<!-- Messages -->
 		<div class="flex flex-col grow pl-4 pt-4 dark:text-white max-h-full overflow-y-auto flex-grow">
-			{#if !currentRoomDetails["name"]}
+			{#if !currentRoomDetails.name}
 				Please select a room!
 			{:else}
-				<h1 class="text-2xl"> Welcome to {currentRoomDetails["name"]}! </h1>
-				<div class="flex flex-col mt-2 grow w-full overflow-y-auto">
-					{#each Object.values(currentRoomDetails["messages"]) as eventData}
-					<div>
-						<p class="break-words">
-							<b> {eventData.member.name} - {formatTime(eventData.created_at)} </b><br />
-							{@html eventData.content}
-						</p>
-					</div>
+				<h1 class="text-2xl"> Welcome to {currentRoomDetails.name}! </h1>
+				<div bind:this={messageView} class="flex flex-col mt-2 grow w-full overflow-y-auto">
+					{#each Object.values(currentRoomDetails.messages) as eventData}
+						<Message message={eventData} />
 					{/each}
 				</div>
-				<TextBox on:typing={handleTypingUpdate} on:updated={handleMessageUpdate} peopleTyping={peopleTyping} channel={currentRoomDetails["name"]} />
+				<TextBox on:typing={handleTypingUpdate} on:updated={handleMessageUpdate} peopleTyping={peopleTyping} channel={currentRoomDetails.name} />
 			{/if}
 		</div>
 
 		<!-- User list -->
-		<div class="flex-shrink p-4 w-1/4 max-h-full overflow-y-auto flex-grow-0 flex-shrink-0 bg-slate-200 dark:bg-slate-600">
-			<h3 class="mb-4 font-semibold text-xl dark:text-gray-400 text-gray-700"> Online - {Object.values(currentRoomDetails.members).filter(member => member.presence === "online").length} </h3>
-			<p class="text-sm dark:text-gray-400 text-gray-700">
-				{#each Object.entries(currentRoomDetails.members) as [userId, member]}
-					<p class="font-bold">
-						{#if member.presence === "online"}
-							{member.displayName} - Online
-						{/if}
-					</p>
-				{/each}
-			</p>
-			<br/>
-			{#if currentRoomDetails.members && Object.keys(currentRoomDetails.members).length > 0}
-				<h3 class="mb-4 font-semibold text-xl dark:text-gray-400 text-gray-700"> Offline - {Object.values(currentRoomDetails.members).filter(member => member.presence === "offline").length} </h3>
+		<div class="flex-shrink p-4 w-1/4 max-h-full overflow-y-auto flex-grow-0 flex-shrink-0 bg-slate-200 dark:bg-slate-600 space-y-4">
+			<!-- Online members -->	
+			<div class:hidden={Object.keys(currentRoomDetails.members).length <= 0}>
+				<h3 class="mb-2 font-semibold text-xl dark:text-gray-400 text-gray-700"> Online - {Object.values(currentRoomDetails.members).filter(member => member.presence === "online").length} </h3>
+				<p class="text-sm dark:text-gray-400 text-gray-700">
+					{#each Object.entries(currentRoomDetails.members) as [userId, member]}
+						<p class="font-bold">
+							{#if member.presence === "online"}
+								{member.displayName} - Online
+							{/if}
+						</p>
+					{/each}
+				</p>
+			</div>
+			
+			<!-- Offline members-->
+			<div class:hidden={Object.keys(currentRoomDetails.members).length <= 0}>
+				<h3 class="mb-2 font-semibold text-xl dark:text-gray-400 text-gray-700"> Offline - {Object.values(currentRoomDetails.members).filter(member => member.presence === "offline").length} </h3>
 				<p class="text-sm dark:text-gray-400 text-gray-700">
 					{#each Object.entries(currentRoomDetails.members) as [userId, member]}
 						<p class="font-bold">
@@ -269,7 +269,7 @@
 						</p>
 					{/each}
 				</p>
-			{/if}
+			</div>
 		</div>
 	</div>
 {/if}
