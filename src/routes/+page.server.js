@@ -1,11 +1,11 @@
 import { redirect } from '@sveltejs/kit';
 
 export async function load({ cookies }) {
-    let accessToken = cookies.get("accessToken");
-    let userId = cookies.get("userId");
     let homeserver = cookies.get("homeserver");
+    let userId = cookies.get("userId");
+    let accessToken = cookies.get("accessToken");
 
-    if (!accessToken || !userId) {
+    if (!homeserver || !userId || !accessToken) {
         throw redirect(302, "/login");
     }
 

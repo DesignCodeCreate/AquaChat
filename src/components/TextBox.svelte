@@ -6,7 +6,7 @@
 	export let channel;
 
 	let value = "";
-  
+
 	function submit() {
 		if (value == "") return;
 		dispatch("updated", { text: value });
@@ -15,7 +15,7 @@
 	}
 
 	function typing(typing) {
-		dispatch("typing", { isTyping: typing });
+		dispatch("typing", typing);
 	}
 
 	function checkIfNone() {

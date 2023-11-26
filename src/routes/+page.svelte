@@ -11,12 +11,8 @@
 	import ThemeSwitcher from "../components/ThemeSwitcher.svelte";
 
 	export let data;
-	let loading = true;
 
-	let sounds = {}
-	let peopleTyping = {};
-	let messageView = {};
-
+	let client;
 	let rooms = {};
 
 	let currentRoomDetails = {
@@ -26,7 +22,22 @@
 		members: {}
 	};
 
-	let client;
+	let loading = true;
+	let messageView = {};
+	let peopleTyping = {};
+	let sounds = {};
+	let leaveRoomPopup = null;
+
+	function fetchRooms() {
+		for (const room of client.getRooms()) {
+			rooms[room.roomId] = {
+				roomCreator: room.myUserId,
+				roomName: room.name,
+				unread: room.notificationCounts.total
+			};
+		}
+		rooms = rooms;
+	}
 
 	async function loadData() {
 		await fetchRooms();
@@ -63,7 +74,7 @@
 	async function scrollToBottom(node, behavior) {
 		node.scroll({ top: node.scrollHeight, behavior });
 	};
-	
+
 	async function changeRoom(roomId) {
 		const room = client.getRoom(roomId);
 		if (!room) return;
@@ -73,12 +84,14 @@
 			messages: [],
 			members: {}
 		};
-		peopleTyping = {};		
+		peopleTyping = {};
 
-		for (const message of (await client.roomInitialSync(roomId, 300)).messages.chunk) {
+		let initialSync = await client.roomInitialSync(roomId, 300);
+
+		for (const message of initialSync.messages.chunk) {
 			if (message.type != "m.room.message") continue;
 
-			currentRoomDetails.messages[message.event_id] = { 
+			currentRoomDetails.messages[message.event_id] = {
 				created_at: message.origin_server_ts,
 				room: room,
 				member: room.getMember(message.sender),
@@ -86,22 +99,11 @@
 			};
 		}
 
-		for (const user of (await client.roomInitialSync(roomId, 300)).presence) {
-			currentRoomDetails.members[user.content.user_id] = { displayName: user.content.user_id, presence: user.content.presence}
+		for (const user of initialSync.presence) {
+			currentRoomDetails.members[user.content.user_id] = { displayName: user.content.user_id, presence: user.content.presence };
 		}
 
 		await scrollToBottom(messageView);
-	}
-
-	function fetchRooms() {
-		for (const room of client.getRooms()) {
-			rooms[room.roomId] = {
-				roomCreator: room.myUserId,
-				roomName: room.name,
-				unread: room.notificationCounts.total
-			};
-		}
-		rooms = rooms;
 	}
 
 	onMount(async () => {
@@ -114,22 +116,22 @@
 			userId: data.userId
 		});
 		await client.startClient();
-		
+
 		client.on("Room.timeline", (event, room) => {
 			if (event.getType() != "m.room.message") return;
 			if (room.roomId != currentRoomDetails.id) return;
-			currentRoomDetails.messages[event.event.event_id] = { 
+
+			currentRoomDetails.messages[event.event.event_id] = {
 				created_at: event.event.origin_server_ts,
 				room: room,
 				member: room.getMember(event.getSender()),
 				content: marked.parse(event.event.content.body)
 			};
+
 			try {
 				if (event.getSender() != data.userId) sounds.message.play();
-			} catch (e) {
-				console.log(e);
-			}
-			
+			} catch {}
+
 			scrollToBottom(messageView, "smooth");
 		});
 
@@ -154,12 +156,7 @@
 		client.on("Room", fetchRooms);
 	});
 
-	function handleTypingUpdate(event) {
-		if (event.detail.isTyping) client.sendTyping(currentRoomDetails.id, true);
-		else client.sendTyping(currentRoomDetails.id, false);
-	}
-	
-	function handleMessageUpdate(event) {		
+	function sendMessage(event) {
 		const content = {
 			"body": event.detail.text,
 			"msgtype": "m.text"
@@ -168,11 +165,9 @@
 		client.sendEvent(currentRoomDetails.id, "m.room.message", content, "");
 	}
 
-	let leaveRoomPopup = null;
-
 	function pauseSounds() {
 		for (let i of Object.keys(sounds)) {
-			sounds.i.pause();
+			sounds[i].pause();
 		}
 	}
 </script>
@@ -181,10 +176,10 @@
 	<title> {currentRoomDetails.name ? (`${currentRoomDetails.name} -`) : ""} AquaChat </title>
 </svelte:head>
 
-<audio bind:this={sounds["joined"]} src="/assets/sounds/discordjoined.mp3" class="hidden" controls>
+<audio bind:this={sounds["joined"]} src="/assets/sounds/discordjoined.mp3" class="hidden">
     <track kind="captions" />
 </audio>
-<audio bind:this={sounds["message"]} src="assets/sounds/discordmessage.mp3" class="hidden" controls>
+<audio bind:this={sounds["message"]} src="assets/sounds/discordmessage.mp3" class="hidden">
     <track kind="captions" />
 </audio>
 
@@ -240,36 +235,37 @@
 						<Message message={eventData} />
 					{/each}
 				</div>
-				<TextBox on:typing={handleTypingUpdate} on:updated={handleMessageUpdate} peopleTyping={peopleTyping} channel={currentRoomDetails.name} />
+				<TextBox
+					on:typing={({ detail }) => client.sendTyping(currentRoomDetails.id, detail)}
+					on:updated={sendMessage}
+					peopleTyping={peopleTyping}
+					channel={currentRoomDetails.name}
+				/>
 			{/if}
 		</div>
 
 		<!-- User list -->
 		<div class="flex-shrink p-4 w-1/4 max-h-full overflow-y-auto flex-grow-0 flex-shrink-0 bg-slate-200 dark:bg-slate-600 space-y-4">
-			<!-- Online members -->	
+			<!-- Online members -->
 			<div class:hidden={Object.keys(currentRoomDetails.members).length <= 0}>
 				<h3 class="mb-2 font-semibold text-xl dark:text-gray-400 text-gray-700"> Online - {Object.values(currentRoomDetails.members).filter(member => member.presence === "online").length} </h3>
 				<p class="text-sm dark:text-gray-400 text-gray-700">
-					{#each Object.entries(currentRoomDetails.members) as [userId, member]}
-						<p class="font-bold">
-							{#if member.presence === "online"}
-								{member.displayName} - Online
-							{/if}
-						</p>
+					{#each Object.entries(currentRoomDetails.members) as [ _, member ]}
+						{#if member.presence == "online"}
+							<p class="font-bold"> {member.displayName} </p>
+						{/if}
 					{/each}
 				</p>
 			</div>
-			
+
 			<!-- Offline members-->
 			<div class:hidden={Object.keys(currentRoomDetails.members).length <= 0}>
 				<h3 class="mb-2 font-semibold text-xl dark:text-gray-400 text-gray-700"> Offline - {Object.values(currentRoomDetails.members).filter(member => member.presence === "offline").length} </h3>
 				<p class="text-sm dark:text-gray-400 text-gray-700">
-					{#each Object.entries(currentRoomDetails.members) as [userId, member]}
-						<p class="font-bold">
-							{#if member.presence === "offline"}
-								{member.displayName} - Offline
-							{/if}
-						</p>
+					{#each Object.entries(currentRoomDetails.members) as [ _, member ]}
+						{#if member.presence == "offline"}
+							<p class="font-bold"> {member.displayName} </p>
+						{/if}
 					{/each}
 				</p>
 			</div>

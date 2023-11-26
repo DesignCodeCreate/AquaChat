@@ -13,7 +13,7 @@
 		>
 			{room.roomName} - {room.unread}
 		</button>
-		<button 
+		<button
             class="px-3.5 py-2.5 bg-transparent hover:bg-gray-400 dark:hover:bg-gray-700 text-sm font-semibold text-gray-900 dark:text-gray-400 rounded-r-md"
             on:click={() => dispatch("leave")}
 		>
