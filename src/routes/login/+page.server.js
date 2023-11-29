@@ -42,17 +42,9 @@ export const actions = {
 		const password = formData.get("password");
 
 		try {
-			let userWithPrefix = username;
-			if (!userWithPrefix.startsWith("@")) {
-				userWithPrefix = `@${userWithPrefix}`;
-			}
-			if (!userWithPrefix.endsWith(`:${homeserver}`)) {
-				userWithPrefix = `${userWithPrefix}:${homeserver}`;
-			}
-
 			let matrixClient = sdk.createClient({ baseUrl: `https://${homeserver}` });
 			await matrixClient.login("m.login.password", {
-				user: userWithPrefix,
+				user: username,
 				password: password
 			});
 
@@ -60,7 +52,7 @@ export const actions = {
 			cookies.set("userId", matrixClient.getUserId(), { path: "/", maxAge: 60 * 60 * 24 * 365 });
 			cookies.set("accessToken", matrixClient.getAccessToken(), { path: "/", maxAge: 60 * 60 * 24 * 365 });
 		} catch (e) {
-			throw error(400, e);
+			throw error(400, e.toString());
 		}
 
 		throw redirect(302, "/");

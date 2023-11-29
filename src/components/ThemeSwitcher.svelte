@@ -24,10 +24,10 @@
 	}
 </script>
 
-<div>
+<div class="hover:bg-slate-400 hover:rounded-lg">
 	{#if theme == "dark"}
-		<img src="/sun.png" class="w-10 cursor-pointer" alt="Switch to light theme" on:click={toggle} on:keypress={toggle} />
+		<img src="/assets/images/sun.png" class="w-10 cursor-pointer" alt="Switch to light theme" on:click={toggle} on:keypress={toggle} />
 	{:else}
-		<img src="/moon.png" class="w-10 cursor-pointer" alt="Switch to dark theme" on:click={toggle} on:keypress={toggle} />
+		<img src="/assets/images/moon.png" class="w-10 cursor-pointer" alt="Switch to dark theme" on:click={toggle} on:keypress={toggle} />
 	{/if}
 </div>

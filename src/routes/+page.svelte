@@ -15,6 +15,10 @@
 	let client;
 	let rooms = {};
 
+	const scrollToBottom = async (node) => {
+		node.scroll({ top: node.scrollHeight, behavior: 'smooth' });
+	}; 
+
 	let currentRoomDetails = {
 		id: undefined,
 		name: undefined,
@@ -27,6 +31,7 @@
 	let peopleTyping = {};
 	let sounds = {};
 	let leaveRoomPopup = null;
+	let showDeleteMessagePopup = null;
 
 	function fetchRooms() {
 		for (const room of client.getRooms()) {
@@ -71,10 +76,6 @@
 		};
 	}
 
-	async function scrollToBottom(node, behavior) {
-		node.scroll({ top: node.scrollHeight, behavior });
-	};
-
 	async function changeRoom(roomId) {
 		const room = client.getRoom(roomId);
 		if (!room) return;
@@ -95,15 +96,24 @@
 				created_at: message.origin_server_ts,
 				room: room,
 				member: room.getMember(message.sender),
-				content: message.content.body ? marked.parse(message.content.body) : ""
+				content: message.content.body ? marked.parse(message.content.body) : "<i> This message was deleted </i>"
 			};
 		}
-
+	
 		for (const user of initialSync.presence) {
 			currentRoomDetails.members[user.content.user_id] = { displayName: user.content.user_id, presence: user.content.presence };
 		}
 
+	 	currentRoomDetails = currentRoomDetails;
+		
+		await new Promise(resolve => setTimeout(resolve));
 		await scrollToBottom(messageView);
+	}
+
+	function getProfilePicture(member) {
+		if (member) {
+			return client.mxcUrlToHttp(client.getUser(member.displayName).avatarUrl);	
+		}
 	}
 
 	onMount(async () => {
@@ -125,18 +135,20 @@
 				created_at: event.event.origin_server_ts,
 				room: room,
 				member: room.getMember(event.getSender()),
-				content: marked.parse(event.event.content.body)
+				content: event.event.content.body ? marked.parse(event.event.content.body) : "<i> This message was deleted </i>"
 			};
 
 			try {
 				if (event.getSender() != data.userId) sounds.message.play();
 			} catch {}
 
-			scrollToBottom(messageView, "smooth");
+			scrollToBottom(messageView);
 		});
 
 		client.on("RoomMember.typing", (_event, member) => {
-			peopleTyping[member.name] = member.typing;
+			if (member.userId != data.userId) {
+				peopleTyping[member.name] = member.typing;
+			}
 		});
 
 		client.on("sync", (state) => {
@@ -156,13 +168,22 @@
 		client.on("Room", fetchRooms);
 	});
 
-	function sendMessage(event) {
+	function sendMessage({ detail }) {
 		const content = {
-			"body": event.detail.text,
+			"body": detail,
 			"msgtype": "m.text"
 		};
 
 		client.sendEvent(currentRoomDetails.id, "m.room.message", content, "");
+	}
+	
+	function deleteMessage(messageId) {
+		if (currentRoomDetails.messages[messageId].member.userId != data.userId) {
+			console.log("You don't have permission to do that!")
+		} else {
+			client.redactEvent(currentRoomDetails.id, messageId);
+			currentRoomDetails.messages[messageId].content = "<i> This message was deleted </i>";
+		}
 	}
 
 	function pauseSounds() {
@@ -197,7 +218,7 @@
 
 {#if loading}
 	<div class="flex h-full justify-center">
-		<img class="w-32 h-32 place-self-center animate-bounce" src="/fish.png" alt="Fish" />
+		<img class="w-32 h-32 place-self-center animate-bounce" src="/assets/images/fish.png" alt="Fish" />
 	</div>
 {:else}
 	<div class="flex flex-row grow h-full">
@@ -229,12 +250,29 @@
 			{#if !currentRoomDetails.name}
 				Please select a room!
 			{:else}
-				<h1 class="text-2xl"> Welcome to {currentRoomDetails.name}! </h1>
+			
+				<h1 class="text-2xl"> {currentRoomDetails.name} </h1>
 				<div bind:this={messageView} class="flex flex-col mt-2 grow w-full overflow-y-auto">
-					{#each Object.values(currentRoomDetails.messages) as eventData}
-						<Message message={eventData} />
+					{#each Object.entries(currentRoomDetails.messages) as [ eventId, eventData ]}
+						<Message client={client} message={eventData} on:deleted={() => showDeleteMessagePopup = eventId}/>
 					{/each}
-				</div>
+	
+					<br />
+					<br />
+					<br />
+
+					{#if showDeleteMessagePopup}
+						<Popup
+							title="Delete message?"
+							description={`Are you sure you want to delete the message?`}
+							on:confirm={() => {
+								deleteMessage(showDeleteMessagePopup);
+								showDeleteMessagePopup = null;
+							}}
+							on:cancel={() => showDeleteMessagePopup = null}
+						/>
+					{/if}
+				</div>		
 				<TextBox
 					on:typing={({ detail }) => client.sendTyping(currentRoomDetails.id, detail)}
 					on:updated={sendMessage}
@@ -250,10 +288,40 @@
 			<div class:hidden={Object.keys(currentRoomDetails.members).length <= 0}>
 				<h3 class="mb-2 font-semibold text-xl dark:text-gray-400 text-gray-700"> Online - {Object.values(currentRoomDetails.members).filter(member => member.presence === "online").length} </h3>
 				<p class="text-sm dark:text-gray-400 text-gray-700">
-					{#each Object.entries(currentRoomDetails.members) as [ _, member ]}
+					{#each Object.values(currentRoomDetails.members) as member}
 						{#if member.presence == "online"}
-							<p class="font-bold"> {member.displayName} </p>
+						
+						<div class="flex-1">
+							{#if getProfilePicture(member)}
+								<div class="flex-1">
+									<div style="display:inline-block; margin-bottom:-15px;">
+										<div
+										class="w-10 h-10 bg-cover bg-center rounded-full"
+										style={`background-image: url('${getProfilePicture(member)}');`}
+										alt="Profile picture"
+										/>
+									</div>
+									<div style="display:inline-block;">
+										<b>{client.getUser(member.displayName).rawDisplayName}</b><br />
+									</div>    
+								</div>		
+							{:else}
+								<div class="flex-1">
+									<div style="display:inline-block; margin-bottom:-15px;">
+										<div
+										class="flex w-10 h-10 justify-center items-center bg-orange-400 font-bold text-white rounded-full"
+										style={`background-image: url('${getProfilePicture(member)}');`}
+										alt="Profile picture"
+										/>
+									</div>
+									<div style="display:inline-block;">
+										<b>{member.name[0].toUpperCase()}</b><br />
+									</div>    
+								</div>
+							{/if}
+						</div>			
 						{/if}
+						<br>
 					{/each}
 				</p>
 			</div>
@@ -262,10 +330,38 @@
 			<div class:hidden={Object.keys(currentRoomDetails.members).length <= 0}>
 				<h3 class="mb-2 font-semibold text-xl dark:text-gray-400 text-gray-700"> Offline - {Object.values(currentRoomDetails.members).filter(member => member.presence === "offline").length} </h3>
 				<p class="text-sm dark:text-gray-400 text-gray-700">
-					{#each Object.entries(currentRoomDetails.members) as [ _, member ]}
+					{#each Object.values(currentRoomDetails.members) as member}
 						{#if member.presence == "offline"}
-							<p class="font-bold"> {member.displayName} </p>
+							{#if getProfilePicture(member)}
+								<div class="flex-1">
+									<div style="display:inline-block; margin-bottom:-15px;">
+										<div
+										class="opacity-40 w-10 h-10 bg-cover bg-center rounded-full"
+										style={`background-image: url('${getProfilePicture(member)}');`}
+										alt="Profile picture"
+										/>
+									</div>
+									<div class="opacity-40" style="display:inline-block;">
+										<b>{client.getUser(member.displayName).rawDisplayName}</b><br />
+									</div>    
+								</div>		
+							{:else}
+								<div class="flex-1">
+									<div style="display:inline-block; margin-bottom:-15px;">
+										<div
+										class="opacity-40 flex w-10 h-10 justify-center items-center bg-orange-400 font-bold text-white rounded-full"
+										alt="Profile picture"
+										>
+										{client.getUser(member.displayName).rawDisplayName[0].toUpperCase()}
+										</div>
+									</div>
+									<div class="opacity-40" style="display:inline-block;">
+										<b>{client.getUser(member.displayName).rawDisplayName}</b><br />
+									</div>   
+								</div>
+							{/if}
 						{/if}
+						<br>
 					{/each}
 				</p>
 			</div>

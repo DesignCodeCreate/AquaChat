@@ -9,9 +9,9 @@
 
 	function submit() {
 		if (value == "") return;
-		dispatch("updated", { text: value });
-		typing(false);
+		dispatch("updated", value);
 		value = "";
+		typing(false);
 	}
 
 	function typing(typing) {
@@ -24,10 +24,10 @@
 	}
 </script>
 
-<div class="mt-4 mb-2">
-	{#each Object.entries(peopleTyping) as [ name, typing  ]}
+<div class="mt-4 mb-1">
+	{#each Object.entries(peopleTyping) as [ name, typing ]}
 		{#if typing}
-			<b><p>{name} is typing</p></b>
+			<p class="font-bold"> {name} is typing </p>
 		{/if}
 	{/each}
 </div>
@@ -35,11 +35,11 @@
 <div class="flex mb-4 w-full">
 	<textarea
 		bind:value
-		placeholder = {`Message #${channel}`}
+		placeholder = {`Message ${channel}`}
 		class="grow h-10 rounded-l-md text-box outline-0 border-l border-y border-slate-400"
 		on:keypress={(event) => {
-			if (event.keyCode == 13 && !event.shiftKey) submit();
 			checkIfNone();
+			if (event.keyCode == 13 && !event.shiftKey) submit();			
 		}}
 		on:keydown={(event) => {
 			const key = event.key;
