@@ -11,7 +11,14 @@
 			class="px-3.5 py-2.5 bg-transparent hover:bg-gray-400 dark:hover:bg-gray-700 text-sm font-semibold text-gray-900 dark:text-gray-400 rounded-l-md"
 			on:click={() => dispatch("select")}
 		>
-			{room.roomName} - {room.unread}
+			{#if room.unread != undefined}
+				{room.roomName} - {room.unread}
+
+			{:else}
+				{room.roomName}
+			{/if}
+
+
 		</button>
 		<button
             class="px-3.5 py-2.5 bg-transparent hover:bg-gray-400 dark:hover:bg-gray-700 text-sm font-semibold text-gray-900 dark:text-gray-400 rounded-r-md"

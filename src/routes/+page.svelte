@@ -3,6 +3,7 @@
 	import * as sdk from "matrix-js-sdk";
 	import Olm from "olm";
 	import { onMount } from "svelte";
+	import seedrandom from "seedrandom";
 
 	import ListedRoom from "../components/ListedRoom.svelte";
 	import Message from "../components/Message.svelte";
@@ -15,6 +16,31 @@
 	let client;
 	let rooms = {};
 
+	const randomerColour = (seed) => {
+		let random = new seedrandom(seed + "idontlikeit");
+		const randomColor = Math.floor(random() * 16777215).toString(16);
+		return "#" + randomColor;
+	}
+
+	const randomColour = (seed) => {
+		let colours = [
+			"E5446D",
+			"FF8966",
+			"F0A202",
+			"F18805",
+			"D95D39",
+			"202C59",
+			"581F18",
+			"DEADED",
+			"1FFFFF"	
+		];
+		let random = new seedrandom(seed + "2");
+
+		let colour = colours[Math.floor(random() * colours.length)];
+
+		return "#" + colour;
+	}
+
 	const scrollToBottom = async (node) => {
 		node.scroll({ top: node.scrollHeight, behavior: 'smooth' });
 	}; 
@@ -23,7 +49,8 @@
 		id: undefined,
 		name: undefined,
 		messages: {},
-		members: {}
+		members: {},
+		avatar: undefined
 	};
 
 	let loading = true;
@@ -33,13 +60,24 @@
 	let leaveRoomPopup = null;
 	let showDeleteMessagePopup = null;
 
-	function fetchRooms() {
+	async function fetchRooms() {
 		for (const room of client.getRooms()) {
+			let initialSync = await client.roomInitialSync(room.roomId, 10);
 			rooms[room.roomId] = {
 				roomCreator: room.myUserId,
 				roomName: room.name,
-				unread: room.notificationCounts.total
+				unread: room.notificationCounts.total,
+				avatar: undefined,
+				membership: initialSync.membership
 			};
+			//console.log(rooms[room.roomId].membership)
+			for (const event of initialSync.state) {
+				if (event.type != "m.room.avatar") continue;
+				if (event.content.url) {
+					rooms[room.roomId].avatar = client.mxcUrlToHttp(event.content.url);
+				}
+			}
+			
 		}
 		rooms = rooms;
 	}
@@ -87,7 +125,8 @@
 		};
 		peopleTyping = {};
 
-		let initialSync = await client.roomInitialSync(roomId, 300);
+		let initialSync = await client.roomInitialSync(roomId, 200);
+		
 
 		for (const message of initialSync.messages.chunk) {
 			if (message.type != "m.room.message") continue;
@@ -96,6 +135,7 @@
 				created_at: message.origin_server_ts,
 				room: room,
 				member: room.getMember(message.sender),
+				avatar_colour: randomerColour(room.getMember(message.sender).userId),
 				content: message.content.body ? marked.parse(message.content.body) : "<i> This message was deleted </i>"
 			};
 		}
@@ -230,11 +270,43 @@
 					Loading...
 				{:else}
 					{#each Object.entries(rooms) as [ eventId, eventData ]}
-						<ListedRoom
-							room={eventData}
-							on:select={() => changeRoom(eventId)}
-							on:leave={() => leaveRoomPopup = eventId}
-						/>
+						
+						<div class="flex-1">
+							<div style="display:inline-block; margin-bottom:-15px;">
+								{#if rooms[eventId].avatar}
+									<div
+										class="w-10 h-10 bg-cover bg-center rounded-full"
+										style={`background-image: url('${rooms[eventId].avatar}');`}
+										alt="Server picture"
+										on:click={changeRoom(eventId)}
+									/>
+								{:else}
+									<div class="flex-1">
+										<div class="flex-1">
+											<div style="display:inline-block; margin-bottom:-15px;">
+												<div
+													class="flex w-10 h-10 justify-center items-center font-bold text-white rounded-full"
+													alt="Server picture"
+													style="background-color:{randomColour(eventId)}"
+													on:click={changeRoom(eventId)}
+												>
+												{eventData.roomName[0].toUpperCase()}
+												</div>
+											</div>
+										</div>    
+									</div>
+								{/if}
+							
+
+							</div>
+							<div style="display:inline-block;">
+								<ListedRoom
+									room={eventData}
+									on:select={() => changeRoom(eventId)}
+									on:leave={() => leaveRoomPopup = eventId}
+								/>
+							</div>
+						</div>	
 					{/each}
 				{/if}
 			</p>
@@ -254,7 +326,7 @@
 				<h1 class="text-2xl"> {currentRoomDetails.name} </h1>
 				<div bind:this={messageView} class="flex flex-col mt-2 grow w-full overflow-y-auto">
 					{#each Object.entries(currentRoomDetails.messages) as [ eventId, eventData ]}
-						<Message client={client} message={eventData} on:deleted={() => showDeleteMessagePopup = eventId}/>
+						<Message client={client} deletable={eventData.member.userId == data.userId} message={eventData} on:deleted={() => showDeleteMessagePopup = eventId}/>
 					{/each}
 	
 					<br />
@@ -307,15 +379,19 @@
 								</div>		
 							{:else}
 								<div class="flex-1">
-									<div style="display:inline-block; margin-bottom:-15px;">
-										<div
-										class="flex w-10 h-10 justify-center items-center bg-orange-400 font-bold text-white rounded-full"
-										style={`background-image: url('${getProfilePicture(member)}');`}
-										alt="Profile picture"
-										/>
-									</div>
-									<div style="display:inline-block;">
-										<b>{member.name[0].toUpperCase()}</b><br />
+									<div class="flex-1">
+										<div style="display:inline-block; margin-bottom:-15px;">
+											<div
+											class="flex w-10 h-10 justify-center items-center font-bold text-white rounded-full"
+											alt="Profile picture"
+											style="background-color:{randomerColour(member.displayName)}"
+											>
+											{client.getUser(member.displayName).rawDisplayName[0].toUpperCase()}
+											</div>
+										</div>
+										<div class="inline-block">
+											<b>{client.getUser(member.displayName).rawDisplayName}</b><br />
+										</div>   
 									</div>    
 								</div>
 							{/if}
@@ -349,10 +425,11 @@
 								<div class="flex-1">
 									<div style="display:inline-block; margin-bottom:-15px;">
 										<div
-										class="opacity-40 flex w-10 h-10 justify-center items-center bg-orange-400 font-bold text-white rounded-full"
-										alt="Profile picture"
+											class="opacity-40 flex w-10 h-10 justify-center items-center font-bold text-white rounded-full"
+											alt="Profile picture"
+											style="background-color:{randomerColour(member.displayName)}"
 										>
-										{client.getUser(member.displayName).rawDisplayName[0].toUpperCase()}
+										{member.displayName[1].toUpperCase()}
 										</div>
 									</div>
 									<div class="opacity-40" style="display:inline-block;">

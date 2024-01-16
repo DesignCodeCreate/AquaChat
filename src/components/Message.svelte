@@ -4,6 +4,7 @@
 	const dispatch = createEventDispatcher();
 	export let client;
 	export let message;
+	export let deletable;
 
 	let pfpSrc = null;
 
@@ -34,8 +35,9 @@
 					/>
 				{:else}
 					<div
-						class="flex w-10 h-10 justify-center items-center bg-orange-400 font-bold text-white rounded-full"
+						class="flex w-10 h-10 justify-center items-center font-bold text-white rounded-full"
 						alt="Profile picture"
+						style="background-color:{message.avatar_colour}"
 					>
 						{message.member.name[0].toUpperCase()}
 					</div>
@@ -49,11 +51,15 @@
 		</div>
 	</div>
 
-	<img
-		on:click={deleteMessage}
-		on:keypress={deleteMessage}
-		class="self-end place-self-end w-6 h-6 transition-opacity duration-300 opacity-0 group-hover:opacity-100"
-		src="/assets/images/trashcan.png"
-		alt="Delete message"
-	/>
+	{#if deletable}
+		<img
+			on:click={deleteMessage}
+			on:keypress={deleteMessage}
+			class="self-end place-self-end w-6 h-6 transition-opacity duration-300 opacity-0 group-hover:opacity-100"
+			src="/assets/images/trashcan.png"
+			alt="Delete message"
+		/>
+
+	{/if}
+	
 </div>
