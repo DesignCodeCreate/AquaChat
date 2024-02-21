@@ -17,18 +17,11 @@
 	function typing(typing) {
 		dispatch("typing", typing);
 	}
-
-	function checkIfNone() {
-		if (value == "") typing(false);
-		else typing(true);
-	}
 </script>
 
 <div class="mt-4 mb-1">
-	{#each Object.entries(peopleTyping) as [ name, typing ]}
-		{#if typing}
-			<p class="font-bold"> {name} is typing </p>
-		{/if}
+	{#each Object.values(peopleTyping) as name}
+		<p class="font-bold"> {name} is typing </p>
 	{/each}
 </div>
 
@@ -36,14 +29,13 @@
 	<textarea
 		bind:value
 		placeholder = {`Message ${channel}`}
-		class="grow h-10 rounded-l-md text-box outline-0 border-l border-y border-slate-400"
+		class="resize-none grow h-10 rounded-l-md text-box outline-0 border-l border-y border-slate-400 overflow-y-auto"
 		on:keypress={(event) => {
-			checkIfNone();
-			if (event.keyCode == 13 && !event.shiftKey) submit();			
-		}}
-		on:keydown={(event) => {
-			const key = event.key;
-			if (key == "Backspace" || key == "Delete") checkIfNone();
+			typing(value != "");
+			if (event.keyCode == 13 && !event.shiftKey) {
+				event.preventDefault();
+				submit();
+			}
 		}}
 	/>
 	<button

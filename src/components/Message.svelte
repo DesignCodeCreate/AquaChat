@@ -1,25 +1,30 @@
-<script>
-	import { createEventDispatcher,  onMount} from "svelte";
-	
+<script lang="ts">
+	import { createEventDispatcher } from "svelte";
+
+	import { randomColour } from "$lib/utils";
+
+	import type { Message } from "$lib/rooms";
+	import type { MatrixClient } from "matrix-js-sdk";
+
 	const dispatch = createEventDispatcher();
-	export let client;
-	export let message;
+	export let client: MatrixClient;
+	export let message: Message;
 	export let deletable;
 
-	let pfpSrc = null;
+	let profilePictureUrl = null;
 
-	onMount(async () => {
-		let avatarUrl = client.getUser(message.member.userId).avatarUrl;
-		if (avatarUrl) pfpSrc = client.mxcUrlToHttp(avatarUrl);
-	});
-	
+	$: {
+		const user = message.member.user ?? client.getUser(message.member.userId);
+		profilePictureUrl = client.mxcUrlToHttp(user.avatarUrl ?? "");
+	}
+
 	function formatTime(timestamp) {
-		let date = new Date(parseInt(timestamp));
+		const date = new Date(parseInt(timestamp));
 		return `${date.getDate()}/${date.getMonth()}/${date.getFullYear()} - ${date.toTimeString().slice(0, -34)}`;
 	}
 
 	function deleteMessage() {
-		dispatch("deleted", { message: message });
+		dispatch("delete", { message });
 	}
 </script>
 
@@ -27,17 +32,15 @@
 	<div class="flex-1">
 		<div class="flex-1">
 			<div class="flex flex-row items-center mb-2 space-x-4">
-				{#if pfpSrc}
+				{#if profilePictureUrl}
 					<div
 						class="w-10 h-10 bg-cover bg-center rounded-full"
-						style={`background-image: url('${pfpSrc}');`}
-						alt="Profile picture"
+						style={`background-image: url('${profilePictureUrl}');`}
 					/>
 				{:else}
 					<div
 						class="flex w-10 h-10 justify-center items-center font-bold text-white rounded-full"
-						alt="Profile picture"
-						style="background-color:{message.avatar_colour}"
+						style="background-color: {randomColour(message.member.name)};"
 					>
 						{message.member.name[0].toUpperCase()}
 					</div>
@@ -45,21 +48,19 @@
 				<b> {message.member.name} - {formatTime(message.created_at)} </b>
 			</div>
 		</div>
-		
+
 		<div class="ml-14">
-{@html message.content}
+			{@html message.content}
 		</div>
 	</div>
 
 	{#if deletable}
 		<img
 			on:click={deleteMessage}
-			on:keypress={deleteMessage}
+			on:keydown={deleteMessage}
 			class="self-end place-self-end w-6 h-6 transition-opacity duration-300 opacity-0 group-hover:opacity-100"
 			src="/assets/images/trashcan.png"
 			alt="Delete message"
 		/>
-
 	{/if}
-	
 </div>

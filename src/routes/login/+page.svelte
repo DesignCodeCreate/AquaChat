@@ -4,7 +4,7 @@
 
 	import ThemeSwitcher from "../../components/ThemeSwitcher.svelte";
 
-	let homeserver = "chat.amansprojects.com";
+	let homeserver = "matrixapp.chat";
 	let errorMessage = "";
 	let username = "";
 	let password = "";
@@ -14,6 +14,10 @@
 		global.Olm = Olm;
 	});
 </script>
+
+<svelte:head>
+	<title> AquaChat - Login </title>
+</svelte:head>
 
 <div class="flex h-screen justify-center items-center">
 	<div class="flex flex-col p-6 w-96 bg-slate-700 rounded-lg">
