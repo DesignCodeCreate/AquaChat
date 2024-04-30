@@ -8,5 +8,9 @@ export async function sendMessage(client: MatrixClient, room: string, content: s
 }
 
 export function deleteMessage(client: MatrixClient, roomId: string, messageId: string) {
-    client.redactEvent(roomId, messageId);
+    try {
+        client.redactEvent(roomId, messageId);
+    } catch (e) {
+        console.error(e);
+    }
 }

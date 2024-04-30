@@ -14,7 +14,7 @@ const colours = [
 
 export async function scrollToBottom(node: HTMLElement) {
 	if (!node) return;
-	await node.scrollTo(20, node.scrollHeight);
+	await node.scrollTo(0, node.scrollHeight);
 }
 
 export function randomColour(seed: string): string {

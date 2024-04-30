@@ -4,7 +4,7 @@
 
 	import ThemeSwitcher from "../../components/ThemeSwitcher.svelte";
 
-	let homeserver = "matrixapp.chat";
+	let homeserver = "";
 	let errorMessage = "";
 	let username = "";
 	let password = "";
